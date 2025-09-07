@@ -3,14 +3,13 @@ package filemanager
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 )
 
-func GetFileData(fileName string){
+func GetFileData(fileName string) ([][]string, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
-		log.Fatal(err)	
+		return nil,err	
 	}
 	defer file.Close()
 
@@ -18,10 +17,14 @@ func GetFileData(fileName string){
 
 	records, err := reader.ReadAll()
 	if err != nil {
-		log.Fatal(err)
+		return nil,err
 	}
 
-	for _, record := range records{
-		fmt.Println(record)
+	//records is a matrix
+	if len(records) <= 1 {
+		return nil,fmt.Errorf("arquivo %s sem valores",fileName)
 	}
+
+	return records[1:],nil
+		
 }

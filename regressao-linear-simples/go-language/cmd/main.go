@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/ia-ml/regressao-linear-simples/go-language/internal/filemanager"
 )
@@ -30,7 +31,32 @@ func main(){
 		log.Fatal("fileName empty...")
 	}
 
-	filemanager.GetFileData(*fileName)
+	data, err := filemanager.GetFileData(*fileName)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, record := range data{
+		fmt.Println(record)
+	}
 
 	fmt.Println("end...")
 }
+
+func recordConverter(records [][]string) ([][]float64,error){
+	result := make([][]float64,len(records))
+	for i, row := range records {
+		floatRow := make([]float64, len(row))
+		for j, val := range row {
+			f, err := strconv.ParseFloat(val,64)
+			if err != nil {
+				return nil, fmt.Errorf("erro convertendo linha %d, coluna %d: %w",i,j,err)
+			}
+			floatRow[j] = f
+		}
+		result[i] = floatRow
+	}
+	return result,nil
+}
+
