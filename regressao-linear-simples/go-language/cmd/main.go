@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	filemanager "github.com/ia-ml/regressao-linear-simples/go/internal/filemanager"
+	"github.com/ia-ml/regressao-linear-simples/go-language/internal/filemanager"
 )
 
 /*
@@ -22,7 +22,7 @@ b = n Σxy - (Σx)(Σy)
 */
 
 func main(){
-	fileName := flag.String("arquivo","arquivo.csv", "Passe o caminho do arquivo csv")
+	fileName := flag.String("arquivo","", "Passe o caminho do arquivo csv")
 
 	flag.Parse()
 
