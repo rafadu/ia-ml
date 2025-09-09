@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/ia-ml/regressao-linear-simples/go-language/internal/filemanager"
+	"github.com/ia-ml/regressao-linear-simples/go-language/internal/linearregression"
 )
 
 /*
@@ -23,6 +27,7 @@ b = n Σxy - (Σx)(Σy)
 */
 
 func main(){
+	reader := bufio.NewReader(os.Stdin)
 	fileName := flag.String("arquivo","", "Passe o caminho do arquivo csv")
 
 	flag.Parse()
@@ -37,11 +42,35 @@ func main(){
 		log.Fatal(err)
 	}
 
-	for _, record := range data{
-		fmt.Println(record)
+	convertedData, err  := recordConverter(data)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	linearModel := linearregression.TrainModel(convertedData)
+
+	fmt.Println(linearModel.ShowModel())
+	fmt.Println(linearModel.GetRSquare())
+
+	for {
+		fmt.Printf("Escreva um valor para ser processado: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+
+		if strings.ToLower(input) == "q"{
+			fmt.Println("Exiting...")
+			break
+		}
+		
+		value, err := strconv.ParseFloat(input,64)
+
+		if err == nil{
+			fmt.Printf("Resultado: %.2f\n",linearModel.ExecuteModel(value))
+		}
+
 	}
 
-	fmt.Println("end...")
 }
 
 func recordConverter(records [][]string) ([][]float64,error){
