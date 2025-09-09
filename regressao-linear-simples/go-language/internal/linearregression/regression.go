@@ -74,7 +74,7 @@ func (slm *SimpleLinearModel) getSST() float64{
 	return vectorSomatorium(&somatorium)
 }
 
-func TrainModel(matrix *[][]float64) SimpleLinearRegression{
+func TrainModel(matrix *[][]float64, showTraining *bool) SimpleLinearRegression{
 	var matrixLen = float64(len(*matrix))
 	//get x array
 	xArray := getMatrixVector(matrix,0)
@@ -99,17 +99,19 @@ func TrainModel(matrix *[][]float64) SimpleLinearRegression{
 	
 	model := SimpleLinearModel{a: a,b: b,yMed: yMed,yArray: yArray, xArray: xArray}
 	
-	model.insertTrainingResults()
+	model.insertTrainingResults(showTraining)
 
 	return SimpleLinearRegression{a: a,b: b,rSquare: model.getRSquare()}
 }
 
-func (slm *SimpleLinearModel) insertTrainingResults(){
+func (slm *SimpleLinearModel) insertTrainingResults(show *bool){
 	results := make([]float64,len(*slm.xArray))
 	for i,record := range *slm.xArray{
 		result := slm.executeModel(record)
 		results[i] = result
-		fmt.Printf("prediction of %.2f : %.2f\n",record,result)
+		if(*show){
+			fmt.Printf("prediction of %.2f : %.2f\n",record,result)
+		}
 	}
 	slm.trainingResults = &results
 	fmt.Println()

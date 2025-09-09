@@ -29,6 +29,7 @@ b = n Σxy - (Σx)(Σy)
 func main(){
 	reader := bufio.NewReader(os.Stdin)
 	fileName := flag.String("arquivo","", "Passe o caminho do arquivo csv")
+	showTraining := flag.Bool("show",true, "informe se deseja ver o resultado do treinamento")
 
 	flag.Parse()
 
@@ -49,7 +50,7 @@ func main(){
 		log.Fatal(err)
 	}
 	
-	linearModel := linearregression.TrainModel(convertedData)
+	linearModel := linearregression.TrainModel(convertedData,showTraining)
 
 	fmt.Println(linearModel.ShowModel())
 	fmt.Println(linearModel.ShowRSquare())
