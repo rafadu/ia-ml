@@ -36,11 +36,12 @@ func main(){
 		log.Fatal("fileName empty...")
 	}
 
-	data, err := filemanager.GetFileData(*fileName)
+	data, err := filemanager.GetFileData(fileName)
 
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println()
 
 	convertedData, err  := recordConverter(data)
 
@@ -51,7 +52,7 @@ func main(){
 	linearModel := linearregression.TrainModel(convertedData)
 
 	fmt.Println(linearModel.ShowModel())
-	fmt.Println(linearModel.GetRSquare())
+	fmt.Println(linearModel.ShowRSquare())
 
 	for {
 		fmt.Printf("Escreva um valor para ser processado: ")
@@ -66,16 +67,16 @@ func main(){
 		value, err := strconv.ParseFloat(input,64)
 
 		if err == nil{
-			fmt.Printf("Resultado: %.2f\n",linearModel.ExecuteModel(value))
+			fmt.Printf("Resultado: %.2f\n",linearModel.InferData(value))
 		}
 
 	}
 
 }
 
-func recordConverter(records [][]string) ([][]float64,error){
-	result := make([][]float64,len(records))
-	for i, row := range records {
+func recordConverter(records *[][]string) (*[][]float64,error){
+	result := make([][]float64,len(*records))
+	for i, row := range *records {
 		floatRow := make([]float64, len(row))
 		for j, val := range row {
 			f, err := strconv.ParseFloat(val,64)
@@ -86,6 +87,6 @@ func recordConverter(records [][]string) ([][]float64,error){
 		}
 		result[i] = floatRow
 	}
-	return result,nil
+	return &result,nil
 }
 

@@ -19,49 +19,63 @@ type SimpleLinearModel struct {
 	a float64
 	b float64
 	yMed float64
-	yArray []float64
-	xArray []float64
-	trainingResults []float64
+	yArray *[]float64
+	xArray *[]float64
+	trainingResults *[]float64
 }
 
-func (slm *SimpleLinearModel) ExecuteModel(x float64) float64{
+type SimpleLinearRegression struct {
+	a float64
+	b float64
+	rSquare float64
+}
+
+func (slr *SimpleLinearRegression) InferData(x float64) float64{
+	return slr.a + (slr.b * x)
+}
+
+
+func (slr *SimpleLinearRegression) ShowModel() string{
+	return fmt.Sprintf("y = %.1f + %.1fx",slr.a,slr.b)
+}
+
+func (slr *SimpleLinearRegression) ShowRSquare() string {
+	return fmt.Sprintf("R² = %.2f\n",slr.rSquare)
+}
+
+func (slm *SimpleLinearModel) executeModel(x float64) float64{
 	return slm.a + (slm.b * x)
 }
 
-func (slm *SimpleLinearModel) ShowModel() string{
-	return fmt.Sprintf("y = %.1f + %.1fx",slm.a,slm.b)
-}
-
-func (slm *SimpleLinearModel) GetRSquare() string{
-	ssr := slm.getSSR(slm.trainingResults)
+func (slm *SimpleLinearModel) getRSquare() float64{
+	ssr := slm.getSSR()
 	sst := slm.getSST()
-	rSquare := ssr/sst
-	return fmt.Sprintf("R² = %.2f",rSquare)
+	return ssr/sst
 }
 
-func (slm *SimpleLinearModel) getSSR(results []float64) float64{
+func (slm *SimpleLinearModel) getSSR() float64{
 	//somatorio de (alvo - media)²
-	somatorium := make([]float64,len(results))
-	for i, result := range results{
+	somatorium := make([]float64,len(*slm.trainingResults))
+	for i, result := range *slm.trainingResults{
 		value := result - slm.yMed
 		somatorium[i] = value*value
 	}
-	return vectorSomatorium(somatorium)
+	return vectorSomatorium(&somatorium)
 }
 
 func (slm *SimpleLinearModel) getSST() float64{
 	//somatorio de (y - media)²
-	somatorium := make([]float64,len(slm.yArray))
-	for i, record := range slm.yArray{
+	somatorium := make([]float64,len(*slm.yArray))
+	for i, record := range *slm.yArray{
 		value := record - slm.yMed
 		somatorium[i] = value*value
 	}
 
-	return vectorSomatorium(somatorium)
+	return vectorSomatorium(&somatorium)
 }
 
-func TrainModel(matrix [][]float64) SimpleLinearModel{
-	var matrixLen = float64(len(matrix))
+func TrainModel(matrix *[][]float64) SimpleLinearRegression{
+	var matrixLen = float64(len(*matrix))
 	//get x array
 	xArray := getMatrixVector(matrix,0)
 	//get y array
@@ -87,24 +101,25 @@ func TrainModel(matrix [][]float64) SimpleLinearModel{
 	
 	model.insertTrainingResults()
 
-	return model
+	return SimpleLinearRegression{a: a,b: b,rSquare: model.getRSquare()}
 }
 
 func (slm *SimpleLinearModel) insertTrainingResults(){
-	results := make([]float64,len(slm.xArray))
-	for i,record := range slm.xArray{
-		result := slm.ExecuteModel(record)
+	results := make([]float64,len(*slm.xArray))
+	for i,record := range *slm.xArray{
+		result := slm.executeModel(record)
 		results[i] = result
 		fmt.Printf("prediction of %.2f : %.2f\n",record,result)
 	}
-	slm.trainingResults = results
+	slm.trainingResults = &results
+	fmt.Println()
 }
 
 
-func getMatrixVector(matrix [][]float64,index int) []float64{
-	vector := make([]float64, len(matrix))
+func getMatrixVector(matrix *[][]float64,index int) *[]float64{
+	vector := make([]float64, len(*matrix))
 
-	for i, row := range matrix{
+	for i, row := range *matrix{
 		for j, val := range row {
 			if j == index{
 				vector[i] = val
@@ -112,29 +127,29 @@ func getMatrixVector(matrix [][]float64,index int) []float64{
 		}
 	}
 
-	return  vector
+	return &vector
 }
 
 
-func vectorSquareSomatorium(vector []float64) float64{
+func vectorSquareSomatorium(vector *[]float64) float64{
 	var sum float64 = 0
-	for _,value := range vector{
+	for _,value := range *vector{
 		sum += value*value
 	}
 	return sum
 }
 
-func vectorSomatorium(vector []float64) float64 {
+func vectorSomatorium(vector *[]float64) float64 {
 	var sum float64 = 0
-	for _,value := range vector{
+	for _,value := range *vector{
 		sum += value 
 	}
 	return sum
 }
 
-func matrixSomatorium(matrix [][]float64) float64{
+func matrixSomatorium(matrix *[][]float64) float64{
 	var sum float64 = 0
-	for _, row := range matrix{
+	for _, row := range *matrix{
 		sum += row[0] * row[1]
 	}
 	return sum

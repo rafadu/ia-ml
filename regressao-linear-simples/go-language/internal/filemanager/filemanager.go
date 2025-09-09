@@ -6,8 +6,8 @@ import (
 	"os"
 )
 
-func GetFileData(fileName string) ([][]string, error) {
-	file, err := os.Open(fileName)
+func GetFileData(fileName *string) (*[][]string, error) {
+	file, err := os.Open(*fileName)
 	if err != nil {
 		return nil,err	
 	}
@@ -22,9 +22,11 @@ func GetFileData(fileName string) ([][]string, error) {
 
 	//records is a matrix
 	if len(records) <= 1 {
-		return nil,fmt.Errorf("arquivo %s sem valores",fileName)
+		return nil,fmt.Errorf("arquivo %s sem valores",*fileName)
 	}
 
-	return records[1:],nil
+	records = records[1:]
+
+	return &records,nil
 		
 }
