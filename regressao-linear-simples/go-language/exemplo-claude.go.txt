@@ -1,0 +1,292 @@
+package main
+
+import (
+	"encoding/csv"
+	"fmt"
+	"log"
+	"math"
+	"os"
+	"strconv"
+	"strings"
+)
+
+// LinearRegression representa um modelo de regressão linear simples
+type LinearRegression struct {
+	Slope     float64 // coeficiente angular (β1)
+	Intercept float64 // intercepto (β0)
+	R2        float64 // coeficiente de determinação
+	Trained   bool    // indica se o modelo foi treinado
+}
+
+// DataPoint representa um ponto de dados com X e Y
+type DataPoint struct {
+	X, Y float64
+}
+
+// NewLinearRegression cria uma nova instância do modelo
+func NewLinearRegression() *LinearRegression {
+	return &LinearRegression{
+		Trained: false,
+	}
+}
+
+// Train treina o modelo usando o método dos mínimos quadrados
+func (lr *LinearRegression) Train(data []DataPoint) error {
+	if len(data) < 2 {
+		return fmt.Errorf("são necessários pelo menos 2 pontos de dados para treinar o modelo")
+	}
+
+	n := float64(len(data))
+	var sumX, sumY, sumXY, sumX2 float64
+
+	// Calcular somas necessárias
+	for _, point := range data {
+		sumX += point.X
+		sumY += point.Y
+		sumXY += point.X * point.Y
+		sumX2 += point.X * point.X
+	}
+
+	// Calcular médias
+	meanX := sumX / n
+	meanY := sumY / n
+
+	// Calcular coeficientes usando fórmulas dos mínimos quadrados
+	denominator := sumX2 - (sumX*sumX)/n
+	if math.Abs(denominator) < 1e-10 {
+		return fmt.Errorf("variância zero em X: não é possível calcular regressão linear")
+	}
+
+	lr.Slope = (sumXY - (sumX*sumY)/n) / denominator
+	lr.Intercept = meanY - lr.Slope*meanX
+
+	// Calcular R²
+	lr.R2 = lr.calculateR2(data, meanY)
+	lr.Trained = true
+
+	return nil
+}
+
+// calculateR2 calcula o coeficiente de determinação
+func (lr *LinearRegression) calculateR2(data []DataPoint, meanY float64) float64 {
+	var ssRes, ssTot float64
+
+	for _, point := range data {
+		predicted := lr.Predict(point.X)
+		ssRes += math.Pow(point.Y-predicted, 2)   // soma dos quadrados dos resíduos
+		ssTot += math.Pow(point.Y-meanY, 2)       // soma total dos quadrados
+	}
+
+	if ssTot == 0 {
+		return 1.0 // se não há variação em Y, R² = 1
+	}
+
+	return 1 - (ssRes / ssTot)
+}
+
+// Predict faz uma predição para um dado valor de X
+func (lr *LinearRegression) Predict(x float64) float64 {
+	if !lr.Trained {
+		log.Printf("Aviso: modelo não foi treinado ainda")
+		return 0
+	}
+	return lr.Intercept + lr.Slope*x
+}
+
+// GetEquation retorna a equação da reta no formato string
+func (lr *LinearRegression) GetEquation() string {
+	if !lr.Trained {
+		return "Modelo não treinado"
+	}
+	
+	sign := "+"
+	if lr.Intercept < 0 {
+		sign = ""
+	}
+	
+	return fmt.Sprintf("y = %.4fx %s %.4f", lr.Slope, sign, lr.Intercept)
+}
+
+// PrintSummary imprime um resumo do modelo treinado
+func (lr *LinearRegression) PrintSummary() {
+	if !lr.Trained {
+		fmt.Println("Modelo não foi treinado ainda")
+		return
+	}
+
+	fmt.Println("\n=== RESUMO DO MODELO ===")
+	fmt.Printf("Equação da reta: %s\n", lr.GetEquation())
+	fmt.Printf("Coeficiente angular (slope): %.6f\n", lr.Slope)
+	fmt.Printf("Intercepto: %.6f\n", lr.Intercept)
+	fmt.Printf("R² (coeficiente de determinação): %.6f\n", lr.R2)
+	fmt.Printf("Qualidade do ajuste: %.2f%%\n", lr.R2*100)
+}
+
+// readCSV lê arquivo CSV e retorna slice de DataPoints
+func readCSV(filename string) ([]DataPoint, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao abrir arquivo: %w", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.FieldsPerRecord = -1 // permite número variável de campos
+	
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("erro ao ler CSV: %w", err)
+	}
+
+	if len(records) == 0 {
+		return nil, fmt.Errorf("arquivo CSV está vazio")
+	}
+
+	var data []DataPoint
+	startRow := 0
+
+	// Verificar se primeira linha é header
+	if isHeader(records[0]) {
+		startRow = 1
+		fmt.Printf("Header detectado: %v\n", records[0])
+	}
+
+	// Processar dados
+	for i := startRow; i < len(records); i++ {
+		record := records[i]
+		if len(record) < 2 {
+			log.Printf("Linha %d ignorada: menos de 2 colunas", i+1)
+			continue
+		}
+
+		// Converter strings para float64
+		x, err := parseFloat(record[0])
+		if err != nil {
+			log.Printf("Linha %d ignorada: erro ao converter X '%s': %v", i+1, record[0], err)
+			continue
+		}
+
+		y, err := parseFloat(record[1])
+		if err != nil {
+			log.Printf("Linha %d ignorada: erro ao converter Y '%s': %v", i+1, record[1], err)
+			continue
+		}
+
+		data = append(data, DataPoint{X: x, Y: y})
+	}
+
+	if len(data) == 0 {
+		return nil, fmt.Errorf("nenhum dado válido encontrado no arquivo")
+	}
+
+	fmt.Printf("Carregados %d pontos de dados do arquivo '%s'\n", len(data), filename)
+	return data, nil
+}
+
+// isHeader verifica se uma linha parece ser um header
+func isHeader(record []string) bool {
+	for _, field := range record {
+		if _, err := strconv.ParseFloat(strings.TrimSpace(field), 64); err != nil {
+			return true // se não conseguir converter para número, provavelmente é header
+		}
+	}
+	return false
+}
+
+// parseFloat converte string para float64 com tratamento de espaços
+func parseFloat(s string) (float64, error) {
+	return strconv.ParseFloat(strings.TrimSpace(s), 64)
+}
+
+// showDataSample mostra uma amostra dos dados carregados
+func showDataSample(data []DataPoint) {
+	fmt.Println("\n=== AMOSTRA DOS DADOS ===")
+	fmt.Println("X\t\tY")
+	fmt.Println("----------------")
+	
+	limit := 10
+	if len(data) < limit {
+		limit = len(data)
+	}
+	
+	for i := 0; i < limit; i++ {
+		fmt.Printf("%.4f\t\t%.4f\n", data[i].X, data[i].Y)
+	}
+	
+	if len(data) > limit {
+		fmt.Printf("... e mais %d pontos\n", len(data)-limit)
+	}
+}
+
+// makePredictions faz algumas predições de exemplo
+func makePredictions(model *LinearRegression, data []DataPoint) {
+	fmt.Println("\n=== PREDIÇÕES DE EXEMPLO ===")
+	fmt.Println("X\t\tY Real\t\tY Predito\tErro")
+	fmt.Println("--------------------------------------------")
+	
+	// Usar alguns pontos dos dados para mostrar predições
+	step := len(data) / 5
+	if step == 0 {
+		step = 1
+	}
+	
+	for i := 0; i < len(data); i += step {
+		point := data[i]
+		predicted := model.Predict(point.X)
+		error := point.Y - predicted
+		fmt.Printf("%.4f\t\t%.4f\t\t%.4f\t\t%.4f\n", 
+			point.X, point.Y, predicted, error)
+	}
+}
+
+func main() {
+	// Verificar argumentos da linha de comando
+	if len(os.Args) != 2 {
+		fmt.Printf("Uso: %s <arquivo.csv>\n", os.Args[0])
+		fmt.Println("O arquivo CSV deve ter pelo menos 2 colunas (X, Y)")
+		os.Exit(1)
+	}
+
+	filename := os.Args[1]
+	fmt.Printf("Carregando dados de: %s\n", filename)
+
+	// Ler dados do CSV
+	data, err := readCSV(filename)
+	if err != nil {
+		log.Fatalf("Erro ao carregar dados: %v", err)
+	}
+
+	// Mostrar amostra dos dados
+	showDataSample(data)
+
+	// Criar e treinar modelo
+	fmt.Println("\nTreinando modelo de regressão linear...")
+	model := NewLinearRegression()
+	
+	if err := model.Train(data); err != nil {
+		log.Fatalf("Erro ao treinar modelo: %v", err)
+	}
+
+	// Mostrar resultados
+	model.PrintSummary()
+
+	// Fazer predições de exemplo
+	makePredictions(model, data)
+
+	// Interpretar qualidade do modelo
+	fmt.Println("\n=== INTERPRETAÇÃO ===")
+	r2 := model.R2
+	switch {
+	case r2 > 0.9:
+		fmt.Println("Excelente ajuste! O modelo explica mais de 90% da variação dos dados.")
+	case r2 > 0.7:
+		fmt.Println("Bom ajuste. O modelo explica uma boa parte da variação dos dados.")
+	case r2 > 0.5:
+		fmt.Println("Ajuste moderado. Há alguma correlação linear, mas com limitações.")
+	default:
+		fmt.Println("Ajuste fraco. Os dados podem não ter uma relação linear clara.")
+	}
+
+	fmt.Printf("\nPara fazer uma nova predição, use: y = %.4f * x + %.4f\n", 
+		model.Slope, model.Intercept)
+}
