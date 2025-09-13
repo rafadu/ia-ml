@@ -1,0 +1,376 @@
+#!/usr/bin/env python3
+"""
+Regressão Linear Simples em Python
+Implementação usando apenas a biblioteca padrão (sem numpy, pandas, sklearn)
+"""
+
+import csv
+import sys
+import math
+from typing import List, Tuple, Optional
+
+
+class DataPoint:
+    """Representa um ponto de dados com coordenadas X e Y"""
+    
+    def __init__(self, x: float, y: float):
+        self.x = x
+        self.y = y
+    
+    def __str__(self):
+        return f"({self.x:.4f}, {self.y:.4f})"
+
+
+class LinearRegression:
+    """Modelo de regressão linear simples implementado do zero"""
+    
+    def __init__(self):
+        self.slope: float = 0.0          # coeficiente angular (β1)
+        self.intercept: float = 0.0      # intercepto (β0)
+        self.r_squared: float = 0.0      # coeficiente de determinação
+        self.is_trained: bool = False    # indica se o modelo foi treinado
+        self.n_samples: int = 0          # número de amostras usadas no treinamento
+    
+    def train(self, data: List[DataPoint]) -> None:
+        """
+        Treina o modelo usando o método dos mínimos quadrados
+        
+        Args:
+            data: Lista de pontos de dados (DataPoint)
+            
+        Raises:
+            ValueError: Se não houver dados suficientes
+        """
+        if len(data) < 2:
+            raise ValueError("São necessários pelo menos 2 pontos de dados para treinar o modelo")
+        
+        self.n_samples = len(data)
+        
+        # Calcular somas necessárias
+        sum_x = sum(point.x for point in data)
+        sum_y = sum(point.y for point in data)
+        sum_xy = sum(point.x * point.y for point in data)
+        sum_x2 = sum(point.x * point.x for point in data)
+        
+        # Calcular médias
+        mean_x = sum_x / self.n_samples
+        mean_y = sum_y / self.n_samples
+        
+        # Calcular coeficientes usando fórmulas dos mínimos quadrados
+        denominator = sum_x2 - (sum_x * sum_x) / self.n_samples
+        
+        if abs(denominator) < 1e-10:
+            raise ValueError("Variância zero em X: não é possível calcular regressão linear")
+        
+        self.slope = (sum_xy - (sum_x * sum_y) / self.n_samples) / denominator
+        self.intercept = mean_y - self.slope * mean_x
+        
+        # Calcular R²
+        self.r_squared = self._calculate_r_squared(data, mean_y)
+        self.is_trained = True
+    
+    def _calculate_r_squared(self, data: List[DataPoint], mean_y: float) -> float:
+        """Calcula o coeficiente de determinação (R²)"""
+        ss_res = 0.0  # soma dos quadrados dos resíduos
+        ss_tot = 0.0  # soma total dos quadrados
+        
+        for point in data:
+            predicted = self.predict(point.x)
+            ss_res += (point.y - predicted) ** 2
+            ss_tot += (point.y - mean_y) ** 2
+        
+        # Se não há variação em Y, R² = 1
+        if ss_tot == 0:
+            return 1.0
+        
+        return 1 - (ss_res / ss_tot)
+    
+    def predict(self, x: float) -> float:
+        """
+        Faz uma predição para um dado valor de X
+        
+        Args:
+            x: Valor de entrada
+            
+        Returns:
+            Valor predito de Y
+        """
+        if not self.is_trained:
+            print("Aviso: modelo não foi treinado ainda")
+            return 0.0
+        
+        return self.intercept + self.slope * x
+    
+    def get_equation(self) -> str:
+        """Retorna a equação da reta como string"""
+        if not self.is_trained:
+            return "Modelo não treinado"
+        
+        sign = "+" if self.intercept >= 0 else ""
+        return f"y = {self.slope:.4f}x {sign} {self.intercept:.4f}"
+    
+    def print_summary(self) -> None:
+        """Imprime um resumo detalhado do modelo treinado"""
+        if not self.is_trained:
+            print("Modelo não foi treinado ainda")
+            return
+        
+        print("\n" + "=" * 30)
+        print("    RESUMO DO MODELO")
+        print("=" * 30)
+        print(f"Equação da reta: {self.get_equation()}")
+        print(f"Coeficiente angular (slope): {self.slope:.6f}")
+        print(f"Intercepto: {self.intercept:.6f}")
+        print(f"R² (coef. determinação): {self.r_squared:.6f}")
+        print(f"Qualidade do ajuste: {self.r_squared * 100:.2f}%")
+        print(f"Amostras utilizadas: {self.n_samples}")
+
+
+def is_number(s: str) -> bool:
+    """Verifica se uma string pode ser convertida para float"""
+    try:
+        float(s.strip())
+        return True
+    except ValueError:
+        return False
+
+
+def is_header(row: List[str]) -> bool:
+    """Verifica se uma linha parece ser um header (contém texto não numérico)"""
+    return not all(is_number(field) for field in row if field.strip())
+
+
+def parse_float(s: str) -> float:
+    """Converte string para float com tratamento de espaços"""
+    return float(s.strip())
+
+
+def read_csv(filename: str) -> List[DataPoint]:
+    """
+    Lê arquivo CSV e retorna lista de DataPoints
+    
+    Args:
+        filename: Nome do arquivo CSV
+        
+    Returns:
+        Lista de pontos de dados
+        
+    Raises:
+        FileNotFoundError: Se arquivo não for encontrado
+        ValueError: Se não houver dados válidos
+    """
+    try:
+        with open(filename, 'r', encoding='utf-8') as file:
+            csv_reader = csv.reader(file)
+            rows = list(csv_reader)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Arquivo '{filename}' não encontrado")
+    except Exception as e:
+        raise ValueError(f"Erro ao ler arquivo CSV: {e}")
+    
+    if not rows:
+        raise ValueError("Arquivo CSV está vazio")
+    
+    data = []
+    start_row = 0
+    
+    # Verificar se primeira linha é header
+    if rows and is_header(rows[0]):
+        start_row = 1
+        print(f"Header detectado: {rows[0]}")
+    
+    # Processar dados
+    for i in range(start_row, len(rows)):
+        row = rows[i]
+        
+        # Pular linhas vazias
+        if not row or all(not field.strip() for field in row):
+            continue
+            
+        if len(row) < 2:
+            print(f"Linha {i + 1} ignorada: menos de 2 colunas")
+            continue
+        
+        try:
+            x = parse_float(row[0])
+            y = parse_float(row[1])
+            data.append(DataPoint(x, y))
+        except ValueError as e:
+            print(f"Linha {i + 1} ignorada: erro ao converter dados '{row[0]}', '{row[1]}': {e}")
+            continue
+    
+    if not data:
+        raise ValueError("Nenhum dado válido encontrado no arquivo")
+    
+    print(f"Carregados {len(data)} pontos de dados do arquivo '{filename}'")
+    return data
+
+
+def show_data_sample(data: List[DataPoint], limit: int = 10) -> None:
+    """Mostra uma amostra dos dados carregados"""
+    print("\n" + "=" * 25)
+    print("   AMOSTRA DOS DADOS")
+    print("=" * 25)
+    print("X\t\tY")
+    print("-" * 20)
+    
+    display_limit = min(limit, len(data))
+    
+    for i in range(display_limit):
+        print(f"{data[i].x:.4f}\t\t{data[i].y:.4f}")
+    
+    if len(data) > limit:
+        print(f"... e mais {len(data) - limit} pontos")
+
+
+def make_predictions(model: LinearRegression, data: List[DataPoint]) -> None:
+    """Faz predições de exemplo usando o modelo treinado"""
+    print("\n" + "=" * 50)
+    print("           PREDIÇÕES DE EXEMPLO")
+    print("=" * 50)
+    print("X\t\tY Real\t\tY Predito\tErro")
+    print("-" * 50)
+    
+    # Usar alguns pontos dos dados para mostrar predições
+    step = max(1, len(data) // 5)
+    
+    for i in range(0, len(data), step):
+        point = data[i]
+        predicted = model.predict(point.x)
+        error = point.y - predicted
+        print(f"{point.x:.4f}\t\t{point.y:.4f}\t\t{predicted:.4f}\t\t{error:.4f}")
+
+
+def calculate_statistics(data: List[DataPoint]) -> dict:
+    """Calcula estatísticas básicas dos dados"""
+    x_values = [point.x for point in data]
+    y_values = [point.y for point in data]
+    
+    stats = {
+        'n': len(data),
+        'x_min': min(x_values),
+        'x_max': max(x_values),
+        'x_mean': sum(x_values) / len(x_values),
+        'y_min': min(y_values),
+        'y_max': max(y_values),
+        'y_mean': sum(y_values) / len(y_values)
+    }
+    
+    # Calcular desvio padrão
+    x_variance = sum((x - stats['x_mean']) ** 2 for x in x_values) / len(x_values)
+    y_variance = sum((y - stats['y_mean']) ** 2 for y in y_values) / len(y_values)
+    
+    stats['x_std'] = math.sqrt(x_variance)
+    stats['y_std'] = math.sqrt(y_variance)
+    
+    return stats
+
+
+def show_data_statistics(data: List[DataPoint]) -> None:
+    """Mostra estatísticas descritivas dos dados"""
+    stats = calculate_statistics(data)
+    
+    print("\n" + "=" * 35)
+    print("      ESTATÍSTICAS DOS DADOS")
+    print("=" * 35)
+    print(f"Número de observações: {stats['n']}")
+    print(f"\nVariável X:")
+    print(f"  Mínimo: {stats['x_min']:.4f}")
+    print(f"  Máximo: {stats['x_max']:.4f}")
+    print(f"  Média: {stats['x_mean']:.4f}")
+    print(f"  Desvio padrão: {stats['x_std']:.4f}")
+    print(f"\nVariável Y:")
+    print(f"  Mínimo: {stats['y_min']:.4f}")
+    print(f"  Máximo: {stats['y_max']:.4f}")
+    print(f"  Média: {stats['y_mean']:.4f}")
+    print(f"  Desvio padrão: {stats['y_std']:.4f}")
+
+
+def interpret_model_quality(r_squared: float) -> None:
+    """Interpreta a qualidade do modelo baseado no R²"""
+    print("\n" + "=" * 35)
+    print("        INTERPRETAÇÃO")
+    print("=" * 35)
+    
+    if r_squared > 0.9:
+        quality = "Excelente"
+        description = "O modelo explica mais de 90% da variação dos dados."
+    elif r_squared > 0.7:
+        quality = "Bom"
+        description = "O modelo explica uma boa parte da variação dos dados."
+    elif r_squared > 0.5:
+        quality = "Moderado"
+        description = "Há alguma correlação linear, mas com limitações."
+    elif r_squared > 0.3:
+        quality = "Fraco"
+        description = "Correlação linear fraca. Considere outros modelos."
+    else:
+        quality = "Muito fraco"
+        description = "Os dados podem não ter relação linear clara."
+    
+    print(f"Qualidade do ajuste: {quality}")
+    print(f"R² = {r_squared:.4f} ({r_squared * 100:.2f}%)")
+    print(f"{description}")
+
+
+def show_usage() -> None:
+    """Mostra instruções de uso do programa"""
+    program_name = sys.argv[0]
+    print(f"Uso: python {program_name} <arquivo.csv>")
+    print("\nO arquivo CSV deve ter pelo menos 2 colunas (X, Y)")
+    print("A primeira linha pode ser um header (será detectado automaticamente)")
+    print("\nExemplo:")
+    print(f"  python {program_name} dados.csv")
+
+
+def main() -> None:
+    """Função principal do programa"""
+    # Verificar argumentos da linha de comando
+    if len(sys.argv) != 2:
+        show_usage()
+        sys.exit(1)
+    
+    filename = sys.argv[1]
+    print(f"🔍 Carregando dados de: {filename}")
+    
+    try:
+        # Ler dados do CSV
+        data = read_csv(filename)
+        
+        # Mostrar estatísticas e amostra dos dados
+        show_data_statistics(data)
+        show_data_sample(data)
+        
+        # Criar e treinar modelo
+        print(f"\n🤖 Treinando modelo de regressão linear...")
+        model = LinearRegression()
+        model.train(data)
+        
+        # Mostrar resultados
+        model.print_summary()
+        
+        # Fazer predições de exemplo
+        make_predictions(model, data)
+        
+        # Interpretar qualidade do modelo
+        interpret_model_quality(model.r_squared)
+        
+        # Mostrar como usar o modelo
+        print(f"\n📋 Para fazer novas predições, use:")
+        print(f"   y = {model.slope:.4f} * x + {model.intercept:.4f}")
+        
+        print(f"\n✅ Análise concluída com sucesso!")
+        
+    except (FileNotFoundError, ValueError) as e:
+        print(f"❌ Erro: {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print(f"\n⚠️  Operação cancelada pelo usuário")
+        sys.exit(0)
+    except Exception as e:
+        print(f"❌ Erro inesperado: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
