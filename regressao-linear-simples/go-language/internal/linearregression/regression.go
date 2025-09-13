@@ -1,6 +1,9 @@
 package linearregression
 
-import "fmt"
+import (
+	"fmt"
+
+)
 
 /*
 Regressão linear simples
@@ -22,25 +25,6 @@ type SimpleLinearModel struct {
 	yArray *[]float64
 	xArray *[]float64
 	trainingResults *[]float64
-}
-
-type SimpleLinearRegression struct {
-	a float64
-	b float64
-	rSquare float64
-}
-
-func (slr *SimpleLinearRegression) InferData(x float64) float64{
-	return slr.a + (slr.b * x)
-}
-
-
-func (slr *SimpleLinearRegression) ShowModel() string{
-	return fmt.Sprintf("y = %.1f + %.1fx",slr.a,slr.b)
-}
-
-func (slr *SimpleLinearRegression) ShowRSquare() string {
-	return fmt.Sprintf("R² = %.2f\n",slr.rSquare)
 }
 
 func (slm *SimpleLinearModel) executeModel(x float64) float64{
@@ -76,10 +60,13 @@ func (slm *SimpleLinearModel) getSST() float64{
 
 func TrainModel(matrix *[][]float64, showTraining *bool) SimpleLinearRegression{
 	var matrixLen = float64(len(*matrix))
+	//transpondo matriz para reduzir quantidade de loopings
+	//não é necessário para o calculo diferente da regressão multipla
+	var transposedMatrix = transposeMatrix(matrix)
 	//get x array
-	xArray := getMatrixVector(matrix,0)
+	xArray := getMatrixTransposedVector(transposedMatrix,0)
 	//get y array
-	yArray := getMatrixVector(matrix,1)
+	yArray := getMatrixTransposedVector(transposedMatrix,1)
 	//get x somatorium 
 	xSum := vectorSomatorium(xArray)
 	//get y somatorium 
@@ -117,19 +104,30 @@ func (slm *SimpleLinearModel) insertTrainingResults(show *bool){
 	fmt.Println()
 }
 
+func transposeMatrix(matrix *[][]float64) *[][]float64{
+	rows := len(*matrix)
+	if rows == 0{
+		return &[][]float64{}
+	}
 
-func getMatrixVector(matrix *[][]float64,index int) *[]float64{
-	vector := make([]float64, len(*matrix))
+	cols := len((*matrix)[0])
+
+	transposed := make([][]float64, cols)
+	for i:= range transposed{
+		transposed[i] = make([]float64, rows)
+	}
 
 	for i, row := range *matrix{
 		for j, val := range row {
-			if j == index{
-				vector[i] = val
-			}	
+		transposed[j][i] = val
 		}
 	}
 
-	return &vector
+	return &transposed
+}
+
+func getMatrixTransposedVector(matrix *[][]float64, index int) *[]float64{
+	return &(*matrix)[index]
 }
 
 
